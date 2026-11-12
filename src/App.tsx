@@ -42,7 +42,8 @@ import {
   type HistoryEntry,
   type Scheme,
 } from "./domain";
-import { looks, resting, simpleGroups, unsplashLicense, type Look } from "./references";
+import Portrait from "./Portrait";
+import { looks, simpleGroups, unsplashLicense, type Look } from "./references";
 import { download, loadDatabase, persistDatabase } from "./storage";
 
 type Screen = "studio" | "history" | "schemes" | "settings";
@@ -465,8 +466,6 @@ export default function App() {
       </main>
     );
 
-  const activeLook = looks.find((look) => look.id === referenceId) ?? null;
-  const shown = activeLook ?? resting;
   const historyList = db.history.filter(
     (item) =>
       (historyType === "all" || item.kind === historyType) &&
@@ -566,30 +565,14 @@ export default function App() {
 
       {screen === "studio" ? (
         <div className="workspace">
-          <section className="stage" aria-label="风格参考">
-            <figure className="reference-frame">
-              <img
-                className="reference"
-                src={shown.image}
-                width={shown.width}
-                height={shown.height}
-                alt={activeLook ? shown.alt : "成年女性的影棚人像，仅作风格参考，不代表当前文字。"}
-              />
-              <figcaption>
-                <strong>风格参考，不会随选项变化</strong>
-                <span>
-                  {activeLook
-                    ? `现在对照的是「${activeLook.name}」：${activeLook.depicts}。改下面的文字，这张照片保持不动。`
-                    : "这是一张真实人像成片，用来感受画面。选一个方向后，会换成那一组的成片。"}
-                </span>
-              </figcaption>
-            </figure>
+          <section className="stage" aria-label="立体人像">
+            <Portrait />
           </section>
 
           <section className="editor" id="editor">
             <div className="editor-intro">
               <h1>先选一个方向</h1>
-              <p>照片只负责气质。真正交出去的，是整理好的文字。</p>
+              <p>人像可以转着看。方向只写入文字，不改模型。</p>
             </div>
             <div className="looks">
               {looks.map((look) => (
@@ -611,11 +594,7 @@ export default function App() {
                 <div className="apply-top">
                   <div>
                     <h2>换成「{pending.title}」</h2>
-                    <p>
-                      {pending.referenceId
-                        ? "先改文字。参考照片要等你确认后才换。"
-                        : "只合并文字，参考照片不动。"}
-                    </p>
+                    <p>确认后只改文字。立体人像的姿势和衣服不会变。</p>
                   </div>
                   <div className="apply-actions">
                     <button onClick={() => setPending(null)}>先不换</button>
@@ -1056,9 +1035,13 @@ export default function App() {
                   导入方案 / 恢复备份
                 </button>
               </div>
-              <h2>参考影像</h2>
+              <h2>立体人像</h2>
               <p className="muted">
-                画面里的人是真实摄影成片，用来感受光线和气质，不是根据你的选项生成的，也不会跟着选项改变。许可为 Unsplash License。
+                中间的头像是 Lee Perry-Smith 的三维扫描，可旋转查看。它是成年男性的头部，没有长发和衣服，也不会随选项改变姿势。许可为 CC BY 3.0。
+              </p>
+              <h2>文字方向配图</h2>
+              <p className="muted">
+                四个方向旁的小图只帮助感受文字气质，不是立体人像，也不会跟着选项生成。许可为 Unsplash License。
               </p>
               <ul className="credits">
                 {looks.map((look) => (
