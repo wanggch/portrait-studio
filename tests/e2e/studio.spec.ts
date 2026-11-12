@@ -3,7 +3,7 @@ import { test, expect, type Page } from "@playwright/test";
 async function ready(page: Page) {
   await page.goto("/");
   await expect(page.getByRole("button", { name: "一键复制参数" })).toBeVisible();
-  await expect(page.getByText("选项不会改变姿势、发型或衣服")).toBeVisible();
+  await expect(page.getByText("选项不会改变姿势或服装")).toBeVisible();
   await page.waitForFunction(
     () => document.querySelector("[data-portrait]")?.getAttribute("data-ready") === "true",
   );

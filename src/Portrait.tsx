@@ -2,10 +2,34 @@ import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import colorUrl from "./assets/portrait/color.jpg";
-import normalUrl from "./assets/portrait/normal.jpg";
 
-const modelUrl = new URL("./assets/portrait/LeePerrySmith.glb", import.meta.url).href;
+const modelUrl = new URL("./assets/portrait/figure.glb", import.meta.url).href;
+
+function frameBody(
+  camera: THREE.PerspectiveCamera,
+  controls: OrbitControls,
+  object: THREE.Object3D,
+) {
+  const box = new THREE.Box3().setFromObject(object);
+  const size = box.getSize(new THREE.Vector3());
+  const center = box.getCenter(new THREE.Vector3());
+  const fov = THREE.MathUtils.degToRad(camera.fov);
+  const distY = size.y / 2 / Math.tan(fov / 2);
+  const distX = size.x / 2 / Math.tan(fov / 2) / Math.max(camera.aspect, 0.2);
+  const dist = Math.max(distY, distX) * 1.32;
+  controls.target.set(center.x, center.y + size.y * 0.06, center.z);
+  camera.position.set(center.x, controls.target.y, center.z + dist);
+  camera.near = Math.max(dist / 80, 0.01);
+  camera.far = dist * 12;
+  camera.updateProjectionMatrix();
+  controls.minDistance = dist * 0.42;
+  controls.maxDistance = dist * 2.2;
+  controls.update();
+  return {
+    position: camera.position.clone(),
+    target: controls.target.clone(),
+  };
+}
 
 export default function Portrait() {
   const host = useRef<HTMLDivElement>(null);
@@ -13,6 +37,8 @@ export default function Portrait() {
   const [ready, setReady] = useState(false);
   const controlsRef = useRef<OrbitControls | null>(null);
   const home = useRef<{ position: THREE.Vector3; target: THREE.Vector3 } | null>(null);
+  const figure = useRef<THREE.Object3D | null>(null);
+  const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
 
   useEffect(() => {
     const el = host.current;
@@ -32,13 +58,14 @@ export default function Portrait() {
     let alive = true;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.22;
-    renderer.setClearColor("#3a322c");
+    renderer.toneMappingExposure = 1.12;
+    renderer.setClearColor("#e6ded2");
     el.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color("#3a322c");
-    const camera = new THREE.PerspectiveCamera(30, 1, 0.05, 80);
+    scene.background = new THREE.Color("#e6ded2");
+    const camera = new THREE.PerspectiveCamera(28, 1, 0.05, 40);
+    cameraRef.current = camera;
     const controls = new OrbitControls(camera, renderer.domElement);
     controlsRef.current = controls;
     controls.enableDamping = true;
@@ -46,69 +73,45 @@ export default function Portrait() {
     controls.enablePan = false;
     controls.rotateSpeed = 0.75;
     controls.zoomSpeed = 0.7;
-    controls.minDistance = 4.2;
-    controls.maxDistance = 14;
-    controls.target.set(0, 1.15, 0);
-    camera.position.set(0.12, 1.22, 6.5);
-    home.current = {
-      position: camera.position.clone(),
-      target: controls.target.clone(),
-    };
-    controls.update();
+    controls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
 
-    scene.add(new THREE.AmbientLight("#fff6ef", 0.7));
-    scene.add(new THREE.HemisphereLight("#fff4ea", "#6a5348", 0.55));
-    const key = new THREE.DirectionalLight("#fff1e2", 3.4);
-    key.position.set(2.4, 3.6, 4.8);
-    const fill = new THREE.DirectionalLight("#d5e0f0", 1.05);
-    fill.position.set(-3.6, 1.4, 2.8);
-    const rim = new THREE.DirectionalLight("#ffd0b4", 1.15);
-    rim.position.set(-1.2, 2.8, -3.8);
+    scene.add(new THREE.AmbientLight("#fff8f2", 0.72));
+    scene.add(new THREE.HemisphereLight("#fff6ee", "#b7a394", 0.48));
+    const key = new THREE.DirectionalLight("#fff4e8", 2.5);
+    key.position.set(1.6, 3.2, 2.8);
+    const fill = new THREE.DirectionalLight("#d7e3f6", 0.85);
+    fill.position.set(-2.4, 1.8, 1.6);
+    const rim = new THREE.DirectionalLight("#ffe0cc", 0.7);
+    rim.position.set(-0.6, 2.4, -2.2);
     scene.add(key, fill, rim);
-
-    let texturesReady = 0;
-    let meshReady = false;
-    const markReady = () => {
-      if (!alive || !meshReady || texturesReady < 2) return;
-      requestAnimationFrame(() => {
-        if (alive) setReady(true);
-      });
-    };
-    const color = new THREE.TextureLoader().load(colorUrl, () => {
-      texturesReady += 1;
-      markReady();
-    });
-    color.colorSpace = THREE.SRGBColorSpace;
-    color.flipY = false;
-    color.anisotropy = 8;
-    const normal = new THREE.TextureLoader().load(normalUrl, () => {
-      texturesReady += 1;
-      markReady();
-    });
-    normal.colorSpace = THREE.NoColorSpace;
-    normal.flipY = false;
 
     const loader = new GLTFLoader();
     loader.load(
       modelUrl,
       (gltf) => {
         if (!alive) return;
-        const mesh = gltf.scene.getObjectByName("LeePerrySmith");
-        if (!mesh || !(mesh as THREE.Mesh).isMesh) {
-          setFailed(true);
-          return;
-        }
-        const head = mesh as THREE.Mesh;
-        head.material = new THREE.MeshStandardMaterial({
-          map: color,
-          normalMap: normal,
-          normalScale: new THREE.Vector2(0.85, -0.85),
-          roughness: 0.58,
-          metalness: 0,
+        const root = gltf.scene;
+        const box = new THREE.Box3().setFromObject(root);
+        root.position.y -= box.min.y;
+        scene.add(root);
+        figure.current = root;
+        const ground = new THREE.Mesh(
+          new THREE.CircleGeometry(0.42, 48),
+          new THREE.MeshBasicMaterial({
+            color: "#000000",
+            transparent: true,
+            opacity: 0.08,
+            depthWrite: false,
+          }),
+        );
+        ground.rotation.x = -Math.PI / 2;
+        ground.position.y = 0.004;
+        scene.add(ground);
+        home.current = frameBody(camera, controls, root);
+        render();
+        requestAnimationFrame(() => {
+          if (alive) setReady(true);
         });
-        scene.add(head);
-        meshReady = true;
-        markReady();
       },
       undefined,
       () => {
@@ -117,20 +120,22 @@ export default function Portrait() {
     );
 
     let frame = 0;
+    const render = () => renderer.render(scene, camera);
     const loop = () => {
       if (!alive) return;
       frame = requestAnimationFrame(loop);
-      controls.update();
-      renderer.render(scene, camera);
+      if (controls.update()) render();
     };
     const resize = () => {
       const width = el.clientWidth;
       const height = el.clientHeight;
       if (!width || !height) return;
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, width < 800 ? 1.5 : 2));
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, width < 800 ? 1.25 : 1.75));
       renderer.setSize(width, height, false);
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
+      if (figure.current) home.current = frameBody(camera, controls, figure.current);
+      render();
     };
     const observer = new ResizeObserver(resize);
     observer.observe(el);
@@ -143,39 +148,40 @@ export default function Portrait() {
       observer.disconnect();
       controls.dispose();
       renderer.dispose();
-      color.dispose();
-      normal.dispose();
       if (renderer.domElement.parentElement === el) el.removeChild(renderer.domElement);
       controlsRef.current = null;
+      cameraRef.current = null;
     };
   }, []);
 
   return (
-    <div className="portrait-frame" ref={host} data-portrait="scan" data-ready={ready ? "true" : "false"}>
+    <div className="portrait-stack">
+      <div className="portrait-frame" ref={host} data-portrait="figure" data-ready={ready ? "true" : "false"}>
+        <button
+          className="portrait-reset"
+          type="button"
+          onClick={() => {
+            const controls = controlsRef.current;
+            const pose = home.current;
+            if (!controls || !pose) return;
+            controls.object.position.copy(pose.position);
+            controls.target.copy(pose.target);
+            controls.update();
+          }}
+        >
+          回到正面
+        </button>
+        {failed && (
+          <div className="portrait-fallback">
+            当前环境无法显示立体人像
+            <small>参数和复制仍然可用</small>
+          </div>
+        )}
+      </div>
       <p className="portrait-caption">
-        <strong>拖动旋转，双指缩放</strong>
-        <span>成年男性头部扫描，双眼闭合，没有头发和衣服。选项不会改变姿势、发型或衣服。</span>
+        <strong>拖动旋转，双指缩放。</strong>
+        选项不会改变姿势或服装。
       </p>
-      <button
-        className="portrait-reset"
-        type="button"
-        onClick={() => {
-          const controls = controlsRef.current;
-          const pose = home.current;
-          if (!controls || !pose) return;
-          controls.object.position.copy(pose.position);
-          controls.target.copy(pose.target);
-          controls.update();
-        }}
-      >
-        回到正面
-      </button>
-      {failed && (
-        <div className="portrait-fallback">
-          当前环境无法显示立体人像
-          <small>参数和复制仍然可用</small>
-        </div>
-      )}
     </div>
   );
 }

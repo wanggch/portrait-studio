@@ -1037,7 +1037,7 @@ export default function App() {
               </div>
               <h2>立体人像</h2>
               <p className="muted">
-                中间的头像是 Lee Perry-Smith 的三维扫描，可旋转查看。它是成年男性的头部，没有长发和衣服，也不会随选项改变姿势。许可为 CC BY 3.0。
+                中间是一个可旋转的成年女性全身模型，有头发和衣服。她是风格化的造型，不是照片，选项也不会改她的姿势或服装。模型以 CC0 发布，来自 Grab3D 的 Casual Woman。
               </p>
               <h2>文字方向配图</h2>
               <p className="muted">
