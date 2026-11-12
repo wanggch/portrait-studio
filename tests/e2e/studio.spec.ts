@@ -117,7 +117,7 @@ test("锁定、清除、撤销、重做", async ({ page }) => {
 test("模板确认前不修改，应用后可整体撤销", async ({ page }) => {
   await ready(page);
   await page.getByRole("button", { name: /海风来信/ }).click();
-  await expect(page.getByRole("dialog")).toBeVisible();
+  await expect(page.getByRole("region", { name: "应用预览" })).toBeVisible();
   await expect(page.getByRole("textbox", { name: "复制内容预览" })).toHaveValue(
     "",
   );
@@ -227,7 +227,7 @@ test("备份导入恢复历史与选择，失败文件不覆盖当前方案", as
   const downloaded = await savedFile;
   const path = await downloaded.path();
   expect(path).toBeTruthy();
-  await page.getByRole("button", { name: "关闭弹窗", exact: true }).click();
+  await page.getByRole("button", { name: "返回", exact: true }).click();
   await page
     .getByRole("button", { name: "移除已选具体地点", exact: true })
     .click();
@@ -264,6 +264,25 @@ test("画幅实际比例与拍摄取景一致，预览可下载", async ({ page 
     .getByRole("button", { name: "导出拍摄取景图", exact: true })
     .click();
   expect((await shot).suggestedFilename()).toContain(".png");
+});
+
+test("390 宽可点选、复制按钮在视口内，且没有横向滚动", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await ready(page);
+  await expect(page.getByRole("button", { name: "一键复制参数" })).toBeInViewport();
+  const noOverflow = () =>
+    page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1);
+  expect(await noOverflow()).toBe(true);
+  await page.getByRole("button", { name: "场景", exact: true }).click();
+  await page
+    .locator('[data-field="scene.location"]')
+    .getByRole("button", { name: "海边", exact: true })
+    .click();
+  await expect(page.getByRole("button", { name: "一键复制参数" })).toBeEnabled();
+  expect(await noOverflow()).toBe(true);
+  await page.getByRole("button", { name: "历史记录", exact: true }).click();
+  await page.getByRole("button", { name: "返回", exact: true }).click();
+  await expect(page.getByRole("button", { name: "一键复制参数" })).toBeVisible();
 });
 
 test("1280×800 下的主要工作区不横向溢出", async ({ page }) => {

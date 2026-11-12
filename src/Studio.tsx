@@ -1620,9 +1620,9 @@ export default function Studio({
         )}
       </div>
       <div className="scene-label">
-        <span>FIGURE 01</span>
+        <span>参考模特</span>
         <strong>成年女性 · 造型参考</strong>
-        <small>程序化风格模型 / 非最终出图效果</small>
+        <small>程序化风格，不是最终成片</small>
       </div>
       <div className="scene-tools">
         <button
@@ -1747,8 +1747,8 @@ export default function Studio({
         )}
         <span>
           {mode === "observe"
-            ? "拖动旋转 · 滚轮缩放 · 右键平移"
-            : "独立拍摄机位 · 仅用于构图参考"}
+            ? "单指旋转 · 双指缩放 · 右键平移"
+            : "这是拍摄机位，自由观察不会改写它"}
         </span>
         <button
           className="small-button"
