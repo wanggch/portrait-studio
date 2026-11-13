@@ -7,23 +7,12 @@
       content="width=device-width, initial-scale=1, viewport-fit=cover"
     />
     <meta name="theme-color" content="#f3eee6" />
-    <meta name="color-scheme" content="light dark" />
+    <meta name="color-scheme" content="light" />
     <meta
       name="description"
-      content="人像工坊：旋转查看扫描人像，配好场景、衣服和光线，一键复制创作简报。数据只留在本机。"
+      content="人像工坊：选一个主题，复制一组可以直接粘贴的图片创作提示词。人物和 9:16 竖幅是默认值。"
     />
     <title>人像工坊</title>
-    <script>
-      try {
-        var theme = localStorage.getItem("portrait-studio-theme");
-        if (theme !== "light" && theme !== "dark") {
-          theme = matchMedia("(prefers-color-scheme: dark)").matches
-            ? "dark"
-            : "light";
-        }
-        document.documentElement.dataset.theme = theme;
-      } catch (e) {}
-    </script>
   </head>
   <body>
     <div id="root"></div>

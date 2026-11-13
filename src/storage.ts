@@ -1,30 +1,50 @@
-import { openDB } from "idb";
-import { databaseSchema, initialDatabase, type Database } from "./domain";
+import { defaultAspect, defaultPersona, defaultSettings, type PromptSettings } from "./compose";
 
-const db = () =>
-  openDB("portrait-studio", 1, {
-    upgrade(database) {
-      database.createObjectStore("workspace");
-    },
-  });
-export async function loadDatabase(): Promise<Database> {
-  const database = await db();
-  const value = await database.get("workspace", "data");
-  return value ? databaseSchema.parse(value) : initialDatabase();
+const SETTINGS_KEY = "portrait-studio-settings";
+const COPIES_KEY = "portrait-studio-copies";
+
+export interface CopyRecord {
+  id: string;
+  title: string;
+  text: string;
+  at: number;
 }
-export async function persistDatabase(value: Database) {
-  const database = await db();
-  await database.put("workspace", value, "data");
+
+export function loadSettings(): PromptSettings {
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    if (!raw) return { ...defaultSettings };
+    const parsed = JSON.parse(raw) as Partial<PromptSettings>;
+    return {
+      persona: typeof parsed.persona === "string" && parsed.persona.trim() ? parsed.persona : defaultPersona,
+      aspect: typeof parsed.aspect === "string" && parsed.aspect.trim() ? parsed.aspect : defaultAspect,
+    };
+  } catch {
+    return { ...defaultSettings };
+  }
 }
-export function download(
-  name: string,
-  content: string,
-  type = "application/json",
-) {
-  const url = URL.createObjectURL(new Blob([content], { type }));
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = name.replace(/[\\/:*?"<>|]/g, "-");
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+export function saveSettings(settings: PromptSettings) {
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+}
+
+export function loadCopies(): CopyRecord[] {
+  try {
+    const raw = localStorage.getItem(COPIES_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as CopyRecord[];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((item) => item && typeof item.text === "string").slice(0, 12);
+  } catch {
+    return [];
+  }
+}
+
+export function rememberCopy(title: string, text: string): CopyRecord[] {
+  const next: CopyRecord[] = [
+    { id: `${Date.now()}`, title, text, at: Date.now() },
+    ...loadCopies().filter((item) => item.text !== text),
+  ].slice(0, 12);
+  localStorage.setItem(COPIES_KEY, JSON.stringify(next));
+  return next;
 }
