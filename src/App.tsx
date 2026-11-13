@@ -1,7 +1,16 @@
-import { useEffect, useMemo, useState } from "react";
-import { compose, composeSet, defaultSettings, type PromptSettings } from "./compose";
-import { categories, themes, type Category, type Theme } from "./library";
-import { loadCopies, loadSettings, rememberCopy, saveSettings, type CopyRecord } from "./storage";
+import { useEffect, useState } from "react";
+import Portrait from "./Portrait";
+import {
+  categories,
+  chipGroups,
+  emptyDraft,
+  examples,
+  instruction,
+  personaNote,
+  type ChipKey,
+  type Draft,
+} from "./instruction";
+import { loadDraft, saveDraft } from "./storage";
 
 async function writeClipboard(text: string) {
   try {
@@ -20,29 +29,20 @@ async function writeClipboard(text: string) {
 }
 
 export default function App() {
-  const [category, setCategory] = useState<Category>("美女写真");
-  const [query, setQuery] = useState("");
-  const [themeId, setThemeId] = useState<string | null>(null);
-  const [settings, setSettings] = useState<PromptSettings>(defaultSettings);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [copies, setCopies] = useState<CopyRecord[]>([]);
+  const [draft, setDraft] = useState<Draft>(emptyDraft);
+  const [hydrated, setHydrated] = useState(false);
   const [notice, setNotice] = useState("");
+  const text = instruction(draft);
+  const ready = draft.theme.trim().length > 0;
 
   useEffect(() => {
-    setSettings(loadSettings());
-    setCopies(loadCopies());
+    setDraft(loadDraft());
+    setHydrated(true);
   }, []);
 
-  const visible = useMemo(() => {
-    const needle = query.trim();
-    return themes.filter((theme) => {
-      if (theme.category !== category) return false;
-      if (!needle) return true;
-      return theme.title.includes(needle) || theme.variations.some((item) => item.title.includes(needle));
-    });
-  }, [category, query]);
-
-  const theme = themes.find((item) => item.id === themeId) ?? null;
+  useEffect(() => {
+    if (hydrated) saveDraft(draft);
+  }, [draft, hydrated]);
 
   useEffect(() => {
     if (!notice) return;
@@ -50,208 +50,124 @@ export default function App() {
     return () => window.clearTimeout(timer);
   }, [notice]);
 
-  async function copyText(title: string, text: string) {
-    const ok = await writeClipboard(text);
-    if (ok) {
-      setCopies(rememberCopy(title, text));
-      setNotice("已复制");
-    } else {
-      setNotice("复制失败，请长按文字");
-    }
+  function toggleChip(key: ChipKey, option: string) {
+    setDraft((current) => ({
+      ...current,
+      chips: { ...current.chips, [key]: current.chips[key] === option ? undefined : option },
+    }));
   }
 
   return (
-    <div className={theme ? "app has-theme" : "app"}>
+    <div className="app">
       <header className="topbar">
-        <div className="top-row">
-          <p className="brand">人像工坊</p>
-          <button type="button" className="text-button" onClick={() => setSettingsOpen(true)}>
-            设置
-          </button>
-        </div>
-        <h1>{theme ? theme.title : "选一个主题，直接复制"}</h1>
+        <p className="brand">人像工坊</p>
+        <h1>告诉技能要写什么</h1>
       </header>
-
       <div className="shell">
-        <section className="browser" aria-label="主题">
+        <Portrait />
+        <form className="form" onSubmit={(event) => event.preventDefault()}>
           <div className="categories" role="tablist" aria-label="类别">
             {categories.map((item) => (
               <button
-                key={item}
+                key={item.id}
                 type="button"
                 role="tab"
-                aria-selected={category === item}
-                className={category === item ? "category is-on" : "category"}
-                onClick={() => {
-                  setCategory(item);
-                  setThemeId(null);
-                }}
+                aria-selected={draft.category === item.id}
+                className={draft.category === item.id ? "category is-on" : "category"}
+                onClick={() => setDraft({ ...draft, category: item.id })}
               >
-                {item}
+                {item.label}
               </button>
             ))}
           </div>
-          <label className="search">
-            <span>搜索主题</span>
+
+          <label className="field">
+            主题
             <input
-              value={query}
-              placeholder="例如 天台、试衣间、电梯"
-              onChange={(event) => setQuery(event.target.value)}
+              aria-label="主题"
+              value={draft.theme}
+              placeholder="例如：雨夜便利店门口"
+              onChange={(event) => setDraft({ ...draft, theme: event.target.value })}
             />
           </label>
-          <p className="hint">人物和 9:16 竖幅已经写进每条提示词，不用每次再选。</p>
-          <ul className="theme-list">
-            {visible.map((item) => (
-              <li key={item.id}>
-                <button
-                  type="button"
-                  className={item.id === themeId ? "theme is-on" : "theme"}
-                  onClick={() => setThemeId(item.id)}
-                >
-                  <strong>{item.title}</strong>
-                  <span>{item.variations.length} 条变体</span>
-                </button>
-              </li>
+          <div className="chips" aria-label="示例">
+            {examples.map((example) => (
+              <button key={example} type="button" onClick={() => setDraft({ ...draft, theme: example })}>
+                {example}
+              </button>
             ))}
-          </ul>
-          {visible.length === 0 && <p className="empty">这个类别里没有匹配的主题。</p>}
-          {copies.length > 0 && (
-            <div className="recent">
-              <h2>最近复制</h2>
-              <ul>
-                {copies.slice(0, 4).map((item) => (
-                  <li key={item.id}>
-                    <button type="button" onClick={() => copyText(item.title, item.text)}>
-                      {item.title}
-                    </button>
-                  </li>
+          </div>
+
+          {chipGroups.map((group) => (
+            <fieldset key={group.key}>
+              <legend>{group.label}</legend>
+              <div className="chips">
+                {group.options.map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    aria-pressed={draft.chips[group.key] === option}
+                    onClick={() => toggleChip(group.key, option)}
+                  >
+                    {option}
+                  </button>
                 ))}
-              </ul>
-            </div>
-          )}
-        </section>
+              </div>
+            </fieldset>
+          ))}
 
-        <section className="reader" aria-label="提示词">
-          {theme ? (
-            <Reader
-              theme={theme}
-              settings={settings}
-              onBack={() => setThemeId(null)}
-              onCopy={copyText}
+          <label className="field">
+            想固定的（可空）
+            <input
+              aria-label="想固定的"
+              value={draft.note}
+              placeholder="例如：酒红丝绒吊带裙"
+              onChange={(event) => setDraft({ ...draft, note: event.target.value })}
             />
-          ) : (
-            <div className="placeholder">
-              <p>从左边选一个主题。</p>
-              <p>每个主题会给出一组可以直接粘贴的变体，写法跟你现有的提示词文件一样。</p>
-            </div>
-          )}
-        </section>
-      </div>
+          </label>
 
-      {settingsOpen && (
-        <Settings
-          value={settings}
-          onClose={() => setSettingsOpen(false)}
-          onChange={(next) => {
-            setSettings(next);
-            saveSettings(next);
-          }}
-        />
-      )}
+          <div className="stepper">
+            <span id="count-label">数量</span>
+            <button
+              type="button"
+              aria-label="减少数量"
+              disabled={draft.count <= 1}
+              onClick={() => setDraft({ ...draft, count: draft.count - 1 })}
+            >
+              −
+            </button>
+            <strong aria-labelledby="count-label">{draft.count}</strong>
+            <button
+              type="button"
+              aria-label="增加数量"
+              disabled={draft.count >= 10}
+              onClick={() => setDraft({ ...draft, count: draft.count + 1 })}
+            >
+              +
+            </button>
+          </div>
+
+          <p className="defaults">{personaNote}</p>
+          <h2>给技能的指令</h2>
+          <pre aria-label="指令预览">{text}</pre>
+          <div className="dock">
+            <button
+              type="button"
+              className="primary"
+              disabled={!ready}
+              onClick={async () => {
+                const ok = await writeClipboard(text);
+                setNotice(ok ? "已复制" : "复制失败，请长按文字");
+              }}
+            >
+              复制
+            </button>
+          </div>
+        </form>
+      </div>
       <p className="notice" role="status">
         {notice}
       </p>
-    </div>
-  );
-}
-
-function Reader({
-  theme,
-  settings,
-  onBack,
-  onCopy,
-}: {
-  theme: Theme;
-  settings: PromptSettings;
-  onBack: () => void;
-  onCopy: (title: string, text: string) => void;
-}) {
-  return (
-    <>
-      <div className="reader-head">
-        <button type="button" className="text-button back" onClick={onBack}>
-          返回主题
-        </button>
-        <button type="button" className="primary" onClick={() => onCopy(`${theme.title} · 整组`, composeSet(theme, settings))}>
-          复制整组
-        </button>
-      </div>
-      <p className="hint">
-        {theme.category} · {theme.variations.length} 条。复制整组会带上标题和编号。
-      </p>
-      <ol className="variations">
-        {theme.variations.map((variation, index) => {
-          const text = compose(variation, settings);
-          return (
-            <li key={variation.title}>
-              <div className="variation-head">
-                <h2>
-                  <span>{index + 1}</span>
-                  {variation.title}
-                </h2>
-                <button type="button" onClick={() => onCopy(`${theme.title} · ${variation.title}`, text)}>
-                  复制这条
-                </button>
-              </div>
-              <pre>{text}</pre>
-            </li>
-          );
-        })}
-      </ol>
-    </>
-  );
-}
-
-function Settings({
-  value,
-  onChange,
-  onClose,
-}: {
-  value: PromptSettings;
-  onChange: (next: PromptSettings) => void;
-  onClose: () => void;
-}) {
-  return (
-    <div className="sheet" role="dialog" aria-modal="true" aria-label="设置">
-      <div className="sheet-card">
-        <div className="reader-head">
-          <h2>默认值</h2>
-          <button type="button" className="text-button" onClick={onClose}>
-            完成
-          </button>
-        </div>
-        <p className="hint">平时不用打开这里。只有想换人物或画幅时才改，改完所有主题都会跟着变。</p>
-        <label>
-          人物
-          <textarea
-            aria-label="人物"
-            rows={5}
-            value={value.persona}
-            onChange={(event) => onChange({ ...value, persona: event.target.value })}
-          />
-        </label>
-        <label>
-          画幅
-          <input
-            aria-label="画幅"
-            value={value.aspect}
-            onChange={(event) => onChange({ ...value, aspect: event.target.value })}
-          />
-        </label>
-        <button type="button" className="text-button" onClick={() => onChange(defaultSettings)}>
-          恢复默认
-        </button>
-      </div>
     </div>
   );
 }
