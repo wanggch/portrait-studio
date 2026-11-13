@@ -11,19 +11,14 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
-    "idb": "^8.0.2",
-    "lucide-react": "^0.468.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "three": "^0.175.0",
-    "zod": "^3.24.2"
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.51.1",
     "@types/node": "^22.13.10",
     "@types/react": "^19.0.10",
     "@types/react-dom": "^19.0.4",
-    "@types/three": "^0.175.0",
     "@vitejs/plugin-react": "^4.3.4",
     "typescript": "~5.7.3",
     "vite": "^6.2.1",
